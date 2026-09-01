@@ -1,7 +1,20 @@
 package main
 
-import "fmt"
+import (
+	"net/http"
+	"log"
+)
 
 func main() {
-	fmt.Println("Hello World!")
+	// Create a ServeMux for routing requests
+	serveMux := http.NewServeMux()
+	
+	// Create a new http Server
+	s := &http.Server{
+		Addr:		":8080",
+		Handler:	serveMux,
+	}
+	
+	// Start the server
+	log.Fatal(s.ListenAndServe())
 }
