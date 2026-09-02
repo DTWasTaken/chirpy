@@ -9,6 +9,9 @@ func main() {
 	// Create a ServeMux for routing requests
 	serveMux := http.NewServeMux()
 	
+	// Add path handlers
+	serveMux.Handle("/", http.FileServer(http.Dir(".")))
+	
 	// Create a new http Server
 	s := &http.Server{
 		Addr:		":8080",
