@@ -11,6 +11,7 @@ func main() {
 	
 	// Add path handlers
 	serveMux.Handle("/", http.FileServer(http.Dir(".")))
+	serveMux.Handle("/assets", http.FileServer(http.Dir("./assets")))
 	
 	// Create a new http Server
 	s := &http.Server{
