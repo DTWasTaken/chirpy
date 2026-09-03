@@ -21,9 +21,9 @@ func main() {
 			apiCfg.middlewareMetricsInc(http.FileServer(http.Dir("."))),
 		),
 	)
-	mux.HandleFunc("GET /healthz", handlerHealthz)
-	mux.HandleFunc("GET /metrics", apiCfg.handlerMetrics)
-	mux.HandleFunc("POST /reset", apiCfg.handlerReset)
+	mux.HandleFunc("GET /api/healthz", handlerHealthz)
+	mux.HandleFunc("GET /api/metrics", apiCfg.handlerMetrics)
+	mux.HandleFunc("POST /api/reset", apiCfg.handlerReset)
 	
 	// Create a new http Server
 	s := &http.Server{
