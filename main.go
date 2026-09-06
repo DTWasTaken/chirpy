@@ -16,6 +16,7 @@ func main() {
 	// Load .env file for postgres connection string
 	godotenv.Load()
 	dbURL := os.Getenv("DB_URL")
+	platform := os.Getenv("PLATFORM")
 	
 	// Open a connection to the database
 	db, err := sql.Open("postgres", dbURL)
@@ -30,7 +31,8 @@ func main() {
 	
 	apiCfg := apiConfig{
 		fileserverHits:	atomic.Int32{},
-		dbQueries:		dbQueries,
+		db:				dbQueries,
+		platform:		platform,
 	}
 	
 	// Add path handlers
@@ -46,6 +48,7 @@ func main() {
 	// /api
 	mux.HandleFunc("GET /api/healthz", handlerHealthz)
 	mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
+	mux.HandleFunc("POST /api/users", apiCfg.handlerUsers)
 	
 	// /admin
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)

@@ -10,7 +10,8 @@ import (
 
 type apiConfig struct {
 	fileserverHits	atomic.Int32
-	dbQueries		*database.Queries
+	db				*database.Queries
+	platform		string
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -35,6 +36,21 @@ func (cfg *apiConfig) handlerMetrics(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) {
+	if cfg.platform != "dev" {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
 	cfg.fileserverHits.Store(0)
+	err := cfg.db.ResetUsers(r.Context())
+	if err != nil {
+		writeResponse(
+			w,
+			http.StatusInternalServerError,
+			errRespBody{
+				fmt.Sprintf("Database error: %s", err),
+			},
+		)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 }
