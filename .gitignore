@@ -1,3 +1,6 @@
 out
 chirpy
 build.sh
+migrate_db.sh
+reset_db.sh
+.env
