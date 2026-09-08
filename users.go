@@ -5,22 +5,25 @@ import (
 	"fmt"
 	"net/http"
 	"time"
-	
+
+	"github.com/DTWasTaken/chirpy/internal/auth"
+	"github.com/DTWasTaken/chirpy/internal/database"
 	"github.com/google/uuid"
 )
 
 type createUserRequest struct {
-	Email 	string `json:"email"`
+	Email		string `json:"email"`
+	Password	string `json:"password"`
 }
 
 type User struct {
-	ID			uuid.UUID `json:"id"`
-	CreatedAt	time.Time `json:"created_at"`
-	UpdatedAt	time.Time `json:"updated_at"`
-	Email		string `json:"email"`
+	ID				uuid.UUID `json:"id"`
+	CreatedAt		time.Time `json:"created_at"`
+	UpdatedAt		time.Time `json:"updated_at"`
+	Email			string `json:"email"`
 }
 
-func (cfg *apiConfig) handlerUsers(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	requestedUser := createUserRequest{}
 	err := decoder.Decode(&requestedUser)
@@ -34,8 +37,34 @@ func (cfg *apiConfig) handlerUsers(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	
+	if requestedUser.Email == "" || requestedUser.Password == "" {
+		writeResponse(
+			w,
+			http.StatusBadRequest,
+			errRespBody{
+				fmt.Sprintf("'email' and 'password' fields are required"),
+			},
+		)
+		return
+	}
+	
+	hashedPassword, err := auth.HashPassword(requestedUser.Password)
+	if err != nil {
+		writeResponse(
+			w,
+			http.StatusInternalServerError,
+			errRespBody{err.Error()},
+		)
+		return
+	}
+	
+	params := database.CreateUserParams{
+		Email:			requestedUser.Email,
+		HashedPassword:	hashedPassword,
+	}
 
-	newUser, err := cfg.db.CreateUser(r.Context(), requestedUser.Email)
+	newUser, err := cfg.db.CreateUser(r.Context(), params)
 	if err != nil {
 		writeResponse(
 			w,
