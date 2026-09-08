@@ -5,16 +5,29 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
+
+	"github.com/DTWasTaken/chirpy/internal/database"
+	"github.com/google/uuid"
 )
 
-type chirpPost struct {
-	Body 	string `json:"body"`
+type createChirpRequest struct {
+	Body		string `json:"body"`
+	UserID		uuid.UUID `json:"user_id"`
 }
 
-func handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
+type Chirp struct {
+	ID			uuid.UUID `json:"id"`
+	CreatedAt	time.Time `json:"created_at"`
+	UpdatedAt	time.Time `json:"updated_at"`
+	Body		string `json:"body"`
+	UserID		uuid.UUID `json:"user_id"`
+}
+
+func (cfg *apiConfig) handlerPostChirp(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
-	post := chirpPost{}
-	err := decoder.Decode(&post)
+	requestedChirp := createChirpRequest{}
+	err := decoder.Decode(&requestedChirp)
 	if err != nil {
 		writeResponse(
 			w,
@@ -26,7 +39,7 @@ func handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	if len(post.Body) > 140 {
+	if len(requestedChirp.Body) > 140 {
 		writeResponse(
 			w,
 			http.StatusBadRequest,
@@ -37,13 +50,34 @@ func handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	post.Body = replaceBadWords(post.Body)
+	requestedChirp.Body = replaceBadWords(requestedChirp.Body)
 	
+	params := database.PostChirpParams{
+		Body:	requestedChirp.Body,
+		UserID:	requestedChirp.UserID,
+	}
+	
+	newChirp, err := cfg.db.PostChirp(r.Context(), params)
+	if err != nil {
+		writeResponse(
+			w,
+			http.StatusInternalServerError,
+			errRespBody{
+				fmt.Sprintf("Error saving chirp: %s", err),
+			},
+		)
+		return
+	}
+
 	writeResponse(
 		w,
-		http.StatusOK,
-		cleanedRespBody{
-			post.Body,
+		http.StatusCreated,
+		Chirp{
+			ID:			newChirp.ID,
+			CreatedAt:	newChirp.CreatedAt,
+			UpdatedAt:	newChirp.UpdatedAt,
+			Body:		newChirp.Body,
+			UserID:		newChirp.UserID,
 		},
 	)
 }
