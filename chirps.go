@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DTWasTaken/chirpy/internal/auth"
 	"github.com/DTWasTaken/chirpy/internal/database"
 	"github.com/google/uuid"
 )
 
 type createChirpRequest struct {
 	Body		string `json:"body"`
-	UserID		uuid.UUID `json:"user_id"`
 }
 
 type Chirp struct {
@@ -25,9 +25,29 @@ type Chirp struct {
 }
 
 func (cfg *apiConfig) handlerPostChirps(w http.ResponseWriter, r *http.Request) {
+	bearerToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		writeResponse(
+			w,
+			http.StatusUnauthorized,
+			errRespBody{"Invalid Authorization header"},
+		)
+		return
+	}
+	
+	userID, err := auth.ValidateJWT(bearerToken, cfg.clientSecret)
+	if err != nil {
+		writeResponse(
+			w,
+			http.StatusUnauthorized,
+			errRespBody{"Invalid Authorization token"},
+		)
+		return
+	}
+	
 	decoder := json.NewDecoder(r.Body)
 	requestedChirp := createChirpRequest{}
-	err := decoder.Decode(&requestedChirp)
+	err = decoder.Decode(&requestedChirp)
 	if err != nil {
 		writeResponse(
 			w,
@@ -54,7 +74,7 @@ func (cfg *apiConfig) handlerPostChirps(w http.ResponseWriter, r *http.Request) 
 	
 	params := database.PostChirpParams{
 		Body:	requestedChirp.Body,
-		UserID:	requestedChirp.UserID,
+		UserID:	userID,
 	}
 	
 	newChirp, err := cfg.db.PostChirp(r.Context(), params)

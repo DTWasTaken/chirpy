@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/DTWasTaken/chirpy/internal/auth"
 )
@@ -11,6 +12,7 @@ import (
 type loginRequest struct {
 	Email		string `json:"email"`
 	Password	string `json:"password"`
+	ExpiresIn	int `json:"expires_in_seconds"`
 }
 
 func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
@@ -26,6 +28,14 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 			},
 		)
 		return
+	}
+	
+	var validFor time.Duration
+	expiresIn := login.ExpiresIn
+	if expiresIn <= 0 || expiresIn > 3600{
+		validFor = time.Duration(time.Second * 3600)
+	} else {
+		validFor = time.Duration(time.Second * time.Duration(expiresIn))
 	}
 	
 	user, err := cfg.db.GetUserByEmail(r.Context(), login.Email)
@@ -48,6 +58,18 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	token, err := auth.MakeJWT(user.ID, cfg.clientSecret, validFor)
+	if err != nil {
+		writeResponse(
+			w,
+			http.StatusInternalServerError,
+			errRespBody{
+				fmt.Sprintf("Error creating token: %s", err),
+			},
+		)
+		return
+	}
+	
 	writeResponse(
 		w,
 		http.StatusOK,
@@ -56,6 +78,7 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 			CreatedAt:	user.CreatedAt,
 			UpdatedAt:	user.UpdatedAt,
 			Email:		user.Email,
+			Token:		token,
 		},
 	)
 }

@@ -17,6 +17,7 @@ func main() {
 	godotenv.Load()
 	dbURL := os.Getenv("DB_URL")
 	platform := os.Getenv("PLATFORM")
+	clientSecret := os.Getenv("CLIENT_SECRET")
 	
 	// Open a connection to the database
 	db, err := sql.Open("postgres", dbURL)
@@ -33,6 +34,7 @@ func main() {
 		fileserverHits:	atomic.Int32{},
 		db:				dbQueries,
 		platform:		platform,
+		clientSecret:	clientSecret,
 	}
 	
 	// Add path handlers
