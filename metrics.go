@@ -12,7 +12,8 @@ type apiConfig struct {
 	fileserverHits	atomic.Int32
 	db				*database.Queries
 	platform		string
-	clientSecret	string
+	clientSecret	string 
+	polkaAPIKey		string
 }
 
 func (cfg *apiConfig) handlerMetrics(w http.ResponseWriter, r *http.Request) {

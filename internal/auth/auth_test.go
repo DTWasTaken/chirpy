@@ -155,3 +155,16 @@ func TestGetBearerToken(t *testing.T) {
 		t.Errorf("GetBearerToken() expected: %s, got: %s", want, got)
 	}
 }
+
+func TestGetAPIKey(t *testing.T) {
+	req, _ := http.NewRequest("GET", "https://api.example.com/data", nil)
+	want := "apikey1234567890"
+	req.Header.Set("Authorization", "ApiKey " + want)
+	got, err := GetAPIKey(req.Header)
+	if err != nil {
+		t.Errorf("GetAPIKey() got error: %v", err)
+	}
+	if got != want {
+		t.Errorf("GetAPIKey() expected: %s, got: %s", want, got)
+	}
+}

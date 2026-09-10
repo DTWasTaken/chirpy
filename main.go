@@ -18,6 +18,7 @@ func main() {
 	dbURL := os.Getenv("DB_URL")
 	platform := os.Getenv("PLATFORM")
 	clientSecret := os.Getenv("CLIENT_SECRET")
+	polkaAPIKey := os.Getenv("POLKA_KEY")
 	
 	// Open a connection to the database
 	db, err := sql.Open("postgres", dbURL)
@@ -35,6 +36,7 @@ func main() {
 		db:				dbQueries,
 		platform:		platform,
 		clientSecret:	clientSecret,
+		polkaAPIKey:	polkaAPIKey,
 	}
 	
 	// Add path handlers
