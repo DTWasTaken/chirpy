@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type createUserRequest struct {
+type userRequest struct {
 	Email		string `json:"email"`
 	Password	string `json:"password"`
 }
@@ -26,43 +27,18 @@ type User struct {
 }
 
 func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
-	decoder := json.NewDecoder(r.Body)
-	requestedUser := createUserRequest{}
-	err := decoder.Decode(&requestedUser)
+	email, hashedPassword, errCode, err := getEmailAndHashedPasswordFromBody(r.Body)
 	if err != nil {
 		writeResponse(
 			w,
-			http.StatusInternalServerError,
-			errRespBody{
-				fmt.Sprintf("Error unmarshalling JSON: %s", err),
-			},
-		)
-		return
-	}
-	
-	if requestedUser.Email == "" || requestedUser.Password == "" {
-		writeResponse(
-			w,
-			http.StatusBadRequest,
-			errRespBody{
-				fmt.Sprintf("'email' and 'password' fields are required"),
-			},
-		)
-		return
-	}
-	
-	hashedPassword, err := auth.HashPassword(requestedUser.Password)
-	if err != nil {
-		writeResponse(
-			w,
-			http.StatusInternalServerError,
+			errCode,
 			errRespBody{err.Error()},
 		)
 		return
 	}
 	
 	params := database.CreateUserParams{
-		Email:			requestedUser.Email,
+		Email:			email,
 		HashedPassword:	hashedPassword,
 	}
 
@@ -72,9 +48,7 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 			w,
 			http.StatusInternalServerError,
 			errRespBody{
-				fmt.Sprintf("Error creating user with email %s: %s",
-							requestedUser.Email,
-							err),
+				fmt.Sprintf("Error creating user with email %s: %s", email, err),
 			},
 		)
 		return
@@ -88,6 +62,87 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 			CreatedAt:	newUser.CreatedAt,
 			UpdatedAt:	newUser.UpdatedAt,
 			Email:		newUser.Email,
+		},
+	)
+}
+
+func getEmailAndHashedPasswordFromBody(body io.ReadCloser) (email string, hashedPassword string, errCode int, err error) {
+	decoder := json.NewDecoder(body)
+	user := userRequest{}
+	jsonErr := decoder.Decode(&user)
+	if jsonErr != nil {
+		return "", "", http.StatusInternalServerError, jsonErr
+	}
+	
+	if user.Email == "" || user.Password == "" {
+		return "", "", http.StatusBadRequest, fmt.Errorf("'email' and 'password' fields are required")
+	}
+	
+	hashedPassword, hashErr := auth.HashPassword(user.Password)
+	if hashErr != nil {
+		return "", "", http.StatusInternalServerError, hashErr
+	}
+	
+	return user.Email, hashedPassword, 0, nil
+}
+
+func (cfg *apiConfig) handlerUpdateUser(w http.ResponseWriter, r *http.Request) {
+	bearerToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		writeResponse(
+			w,
+			http.StatusUnauthorized,
+			errRespBody{"Invalid Authorization header"},
+		)
+		return
+	}
+	
+	userID, err := auth.ValidateJWT(bearerToken, cfg.clientSecret)
+	if err != nil {
+		writeResponse(
+			w,
+			http.StatusUnauthorized,
+			errRespBody{"Invalid Authorization token"},
+		)
+		return
+	}
+	
+	email, hashedPassword, errCode, err := getEmailAndHashedPasswordFromBody(r.Body)
+	if err != nil {
+		writeResponse(
+			w,
+			errCode,
+			errRespBody{err.Error()},
+		)
+		return
+	}
+	
+	params := database.UpdateUserParams{
+		ID:				userID,
+		Email:			email,
+		HashedPassword:	hashedPassword,
+	}
+	
+	updatedUser, err := cfg.db.UpdateUser(r.Context(), params)
+	if err != nil {
+		writeResponse(
+			w,
+			http.StatusInternalServerError,
+			errRespBody{
+				fmt.Sprintf("Error updating user with email %s: %s", email, err),
+			},
+		)
+		return
+	}
+
+	writeResponse(
+		w,
+		http.StatusOK,
+		User{
+			ID:			updatedUser.ID,
+			CreatedAt:	updatedUser.CreatedAt,
+			UpdatedAt:	updatedUser.UpdatedAt,
+			Email:		updatedUser.Email,
 		},
 	)
 }
