@@ -86,27 +86,7 @@ func getEmailAndHashedPasswordFromBody(body io.ReadCloser) (email string, hashed
 	return user.Email, hashedPassword, 0, nil
 }
 
-func (cfg *apiConfig) handlerUpdateUser(w http.ResponseWriter, r *http.Request) {
-	bearerToken, err := auth.GetBearerToken(r.Header)
-	if err != nil {
-		writeResponse(
-			w,
-			http.StatusUnauthorized,
-			errRespBody{"Invalid Authorization header"},
-		)
-		return
-	}
-	
-	userID, err := auth.ValidateJWT(bearerToken, cfg.clientSecret)
-	if err != nil {
-		writeResponse(
-			w,
-			http.StatusUnauthorized,
-			errRespBody{"Invalid Authorization token"},
-		)
-		return
-	}
-	
+func (cfg *apiConfig) handlerUpdateUser(w http.ResponseWriter, r *http.Request, userID uuid.UUID) {
 	email, hashedPassword, errCode, err := getEmailAndHashedPasswordFromBody(r.Body)
 	if err != nil {
 		writeResponse(

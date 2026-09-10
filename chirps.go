@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DTWasTaken/chirpy/internal/auth"
 	"github.com/DTWasTaken/chirpy/internal/database"
 	"github.com/google/uuid"
 )
@@ -24,30 +23,10 @@ type Chirp struct {
 	UserID		uuid.UUID `json:"user_id"`
 }
 
-func (cfg *apiConfig) handlerPostChirps(w http.ResponseWriter, r *http.Request) {
-	bearerToken, err := auth.GetBearerToken(r.Header)
-	if err != nil {
-		writeResponse(
-			w,
-			http.StatusUnauthorized,
-			errRespBody{"Invalid Authorization header"},
-		)
-		return
-	}
-	
-	userID, err := auth.ValidateJWT(bearerToken, cfg.clientSecret)
-	if err != nil {
-		writeResponse(
-			w,
-			http.StatusUnauthorized,
-			errRespBody{"Invalid Authorization token"},
-		)
-		return
-	}
-	
+func (cfg *apiConfig) handlerPostChirps(w http.ResponseWriter, r *http.Request, userID uuid.UUID) {
 	decoder := json.NewDecoder(r.Body)
 	requestedChirp := createChirpRequest{}
-	err = decoder.Decode(&requestedChirp)
+	err := decoder.Decode(&requestedChirp)
 	if err != nil {
 		writeResponse(
 			w,
@@ -154,6 +133,7 @@ func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 
 	writeResponse(w, http.StatusOK, returnChirps)
 }
+
 func (cfg *apiConfig) handlerGetChirpByID(w http.ResponseWriter, r *http.Request) {
 	chirpID, err := uuid.Parse(r.PathValue("chirpID"))
 	if err != nil {
@@ -188,4 +168,49 @@ func (cfg *apiConfig) handlerGetChirpByID(w http.ResponseWriter, r *http.Request
 			UserID:		chirp.UserID,
 		},
 	)
+}
+
+func (cfg *apiConfig) handlerDeleteChirp(w http.ResponseWriter, r *http.Request, userID uuid.UUID) {
+	chirpID, err := uuid.Parse(r.PathValue("chirpID"))
+	if err != nil {
+		writeResponse(
+			w,
+			http.StatusBadRequest,
+			errRespBody{
+				fmt.Sprintf("Invalid Chirp ID: %s", r.PathValue("chirpID")),
+			},
+		)
+		return
+	}
+	
+	chirp, err := cfg.db.GetChirpByID(r.Context(), chirpID)
+	if err != nil {
+		writeResponse(
+			w,
+			http.StatusNotFound,
+			errRespBody{"Chirp not found"},
+		)
+		return
+	}
+	
+	if chirp.UserID != userID {
+		writeResponse(
+			w,
+			http.StatusForbidden,
+			errRespBody{"Not your chirp, buddy"},
+		)
+		return
+	}
+	
+	err = cfg.db.DeleteChirp(r.Context(), chirpID)
+	if err != nil {
+		writeResponse(
+			w,
+			http.StatusInternalServerError,
+			errRespBody{"Could not delete chirp"},
+		)
+		return
+	}
+	
+	w.WriteHeader(http.StatusNoContent)
 }
