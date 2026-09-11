@@ -107,7 +107,23 @@ func stringIsInStrings(check string, strs []string) bool {
 }
 
 func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
-	chirps, err := cfg.db.GetChirps(r.Context())
+	authorID := r.URL.Query().Get("author_id")
+	var chirps []database.Chirp
+	var err error
+	if authorID == "" {
+		chirps, err = cfg.db.GetChirps(r.Context())
+	} else {
+		authorUUID, uuidErr := uuid.Parse(authorID)
+		if uuidErr != nil {
+			writeResponse(
+				w,
+				http.StatusBadRequest ,
+				errRespBody{"Invalid author_id"},
+			)
+			return
+		}
+		chirps, err = cfg.db.GetChirpsByUser(r.Context(), authorUUID)
+	}
 	if err != nil {
 		writeResponse(
 			w,
@@ -152,9 +168,7 @@ func (cfg *apiConfig) handlerGetChirpByID(w http.ResponseWriter, r *http.Request
 		writeResponse(
 			w,
 			http.StatusNotFound,
-			errRespBody{
-				fmt.Sprintf("Chirp not found"),
-			},
+			errRespBody{"Chirp not found"},
 		)
 		return
 	}

@@ -10,11 +10,8 @@ type errRespBody struct {
 	ErrorMessage	string `json:"error"`
 }
 
-type cleanedRespBody struct {
-	CleanedMessage	string `json:"cleaned_body"`
-}
 
-func writeResponse(w http.ResponseWriter, code int, body interface{}) {
+func writeResponse(w http.ResponseWriter, code int, body any) {
 	dat, err := json.Marshal(body)
 	if err != nil {
 		writeResponse(
